@@ -1,4 +1,9 @@
-import type * as Y from "yjs";
+/**
+ * Yjs 协同的类型契约（契约层）
+ *
+ * 被协议层（sync-handler）、房间层（room）、管理/接入层（room-manager / yjs.service）
+ * 共同引用，独立成文件避免循环依赖。
+ */
 
 /**
  * Yjs 文档持久化接口
@@ -9,7 +14,7 @@ import type * as Y from "yjs";
  * 设计取舍：
  * - 这里只覆盖式存 state（Y.encodeStateAsUpdate 的产物）
  * - 不做 update 增量追加，避免增量无限膨胀
- * - 调用方负责周期性 flush，yjs-server 包内做 debounce
+ * - 调用方负责周期性 flush，YjsRoom 内做 debounce
  */
 export interface YjsPersistence {
   /** 加载 docId 对应的 Yjs state 二进制，没有则返回 null */
@@ -22,7 +27,8 @@ export interface YjsPersistence {
  * Yjs 客户端连接抽象
  *
  * 任何能 send 二进制 + close 的传输都实现这个接口。
- * 当前实现是 ws.WebSocket，未来可以扩展到 socket.io / WebRTC。
+ * 当前实现是 ws.WebSocket（见 room.ts 的 createWsConnection），
+ * 未来可以扩展到 socket.io / WebRTC。
  */
 export interface YjsConnection {
   /** 客户端唯一 ID（与 Y.Doc.awareness.clientID 对齐） */

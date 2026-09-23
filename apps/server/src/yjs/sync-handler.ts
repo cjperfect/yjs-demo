@@ -3,16 +3,17 @@ import * as syncProtocol from "y-protocols/sync";
 import * as awarenessProtocol from "y-protocols/awareness";
 import * as encoding from "lib0/encoding";
 import * as decoding from "lib0/decoding";
-import type { YjsConnection } from "./types";
+import type { YjsConnection } from "./types.js";
 
 /**
- * Yjs 二进制消息分发器
+ * Yjs 二进制消息分发器（协议层）
  *
  * 负责处理客户端发来的二进制 frame，按 y-protocols 的 message type 分发：
  * - 0 (sync): syncStep1 / syncStep2 / update
  * - 1 (awareness): awareness update / query
  *
  * 这是 y-websocket server 端的核心逻辑，剥离自 y-websocket 以便自定义传输层。
+ * 只依赖契约层（types.ts），不依赖房间实现，可独立测试。
  */
 
 export const MESSAGE_SYNC = 0;
@@ -49,7 +50,7 @@ export function handleYjsMessage(
     }
   } catch (err) {
     // 解码失败时不要让单个客户端拖垮房间
-    console.error("[yjs-server] handleYjsMessage error:", err);
+    console.error("[yjs] handleYjsMessage error:", err);
   }
 }
 

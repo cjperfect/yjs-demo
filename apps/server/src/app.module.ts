@@ -1,5 +1,5 @@
 import { Module } from "@nestjs/common";
-import { YjsModule } from "./yjs/yjs.module.js";
+import { YjsModule } from "./yjs/yjs.service.js";
 import { DocumentsModule } from "./documents/documents.module.js";
 import { InfoController } from "./info/info.controller.js";
 

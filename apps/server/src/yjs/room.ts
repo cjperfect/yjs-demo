@@ -2,8 +2,72 @@ import * as Y from "yjs";
 import * as syncProtocol from "y-protocols/sync";
 import * as awarenessProtocol from "y-protocols/awareness";
 import * as encoding from "lib0/encoding";
-import type { YjsConnection, YjsPersistence } from "./types";
-import { handleYjsMessage, sendInitialSync } from "./sync-handler";
+import type { WebSocket } from "ws";
+import type { YjsConnection, YjsPersistence } from "./types.js";
+import {
+  MESSAGE_AWARENESS,
+  MESSAGE_SYNC,
+  handleYjsMessage,
+  sendInitialSync,
+} from "./sync-handler.js";
+
+/**
+ * Yjs 协同房间（房间层）
+ *
+ * 本文件包含一个协同房间的"运行机制"：
+ * - 传输适配：createWsConnection（ws.WebSocket → YjsConnection）
+ * - 房间本体：YjsRoom（Y.Doc + awareness + connections + 持久化）
+ *
+ * 关注点分层（自下而上，各自独立成文件避免单文件过大）：
+ *   types.ts（契约）→ sync-handler.ts（协议）→ room.ts（房间）→ room-manager.ts（房间池）→ yjs.service.ts（NestJS 接入）
+ */
+
+// ─── 传输适配 ────────────────────────────────────────────────────
+
+/**
+ * 把 ws.WebSocket 适配成 YjsConnection
+ *
+ * ws 库的 'message' 事件回传 Buffer，
+ * 这里转成 Uint8Array 以匹配 y-protocols 的二进制处理约定。
+ *
+ * 同时负责承载 Yjs clientId（由调用方从 Y.Doc.awareness.clientID 分配）
+ */
+export function createWsConnection(ws: WebSocket, clientId: number): YjsConnection {
+  let messageHandler: ((data: Uint8Array) => void) | null = null;
+  let closeHandler: (() => void) | null = null;
+
+  ws.on("message", (raw: Buffer) => {
+    if (messageHandler) {
+      // Buffer → Uint8Array 直接共享内存，零拷贝
+      const u8 = new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength);
+      messageHandler(u8);
+    }
+  });
+
+  ws.on("close", () => {
+    if (closeHandler) closeHandler();
+  });
+
+  return {
+    clientId,
+    send(data: Uint8Array): void {
+      if (ws.readyState === ws.OPEN) {
+        ws.send(data, { binary: true });
+      }
+    },
+    close(code?: number, reason?: string): void {
+      ws.close(code, reason);
+    },
+    onMessage(handler: (data: Uint8Array) => void): void {
+      messageHandler = handler;
+    },
+    onClose(handler: () => void): void {
+      closeHandler = handler;
+    },
+  };
+}
+
+// ─── 房间本体 ─────────────────────────────────────────────────────
 
 /**
  * 单个 Yjs 协同房间
@@ -101,7 +165,7 @@ export class YjsRoom {
   /** 广播 update 给房间内除 origin 外的所有客户端 */
   private broadcastUpdate(update: Uint8Array, origin: unknown): void {
     const encoder = encoding.createEncoder();
-    encoding.writeVarUint(encoder, 0); // MESSAGE_SYNC
+    encoding.writeVarUint(encoder, MESSAGE_SYNC);
     syncProtocol.writeUpdate(encoder, update);
     const message = encoding.toUint8Array(encoder);
 
@@ -119,7 +183,7 @@ export class YjsRoom {
   ): void => {
     const changedClients = [...added, ...updated, ...removed];
     const encoder = encoding.createEncoder();
-    encoding.writeVarUint(encoder, 1); // MESSAGE_AWARENESS
+    encoding.writeVarUint(encoder, MESSAGE_AWARENESS);
     const awarenessUpdate = awarenessProtocol.encodeAwarenessUpdate(
       this.awareness,
       changedClients,

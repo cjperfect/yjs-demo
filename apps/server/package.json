@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@yjs-demo/shared": "workspace:*",
-    "@yjs-demo/yjs-server": "workspace:*",
     "@nestjs/common": "catalog:",
     "@nestjs/core": "catalog:",
     "@nestjs/platform-express": "catalog:",

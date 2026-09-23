@@ -9,6 +9,8 @@ out/
 .turbo/
 .next/
 .nuxt/
+# TypeScript 增量编译缓存
+*.tsbuildinfo
 
 # 测试
 coverage/

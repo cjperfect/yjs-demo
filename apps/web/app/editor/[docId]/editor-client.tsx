@@ -8,7 +8,7 @@ import type { Collaborator, User } from "@yjs-demo/shared";
 
 // CollabEditor 是 client-only（依赖 WebSocket），用 dynamic ssr:false 包装
 const CollabEditor = dynamic(
-  () => import("@yjs-demo/editor").then((m) => m.CollabEditor),
+  () => import("../../../components/editor").then((m) => m.CollabEditor),
   {
     ssr: false,
     loading: () => (
@@ -213,6 +213,16 @@ export default function EditorClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- loadCollaborators 依赖 apiBase/docId/loginUser，每次 show 都要重新拉
   }, [showInvite]);
 
+  // 所有 hooks 已调用完毕，从这里开始可以提前 return
+  if (!loginUser) {
+    // 正常情况下 RequireUser 已经在 layout 拦截未登录访问，这里是防御性 fallback
+    return <div className="py-16 text-center text-sm text-slate-500">初始化用户...</div>;
+  }
+
+  // 取 const 别名：闭包里 TypeScript 不会保留 useUser 返回值（state）的 narrowing，
+  // 但 const 后就稳定了，submitRename 等闭包可以安全引用 currentUser.name
+  const currentUser = loginUser;
+
   const submitRename = () => {
     const name = draftName.trim();
     if (!name || name === docName) {
@@ -296,15 +306,6 @@ export default function EditorClient({
       setRenaming(false);
     }
   };
-
-  if (!loginUser) {
-    // 正常情况下 RequireUser 已经在 layout 拦截未登录访问，这里是防御性 fallback
-    return <div className="py-16 text-center text-sm text-slate-500">初始化用户...</div>;
-  }
-
-  // 取 const 别名：闭包里 TypeScript 不会保留 useUser 返回值（state）的 narrowing，
-  // 但 const 后就稳定了，submitRename 等闭包可以安全引用 currentUser.name
-  const currentUser = loginUser;
 
   // AppUser 是 web 内部形状，CollabEditor 期待 shared 包的 User；
   // 字段一致，用 useMemo 稳定引用，避免每次 re-render 构造新对象触发
@@ -402,8 +403,8 @@ export default function EditorClient({
             </button>
           )}
 
-          {/* 邀请协作（弹层）：仅 owner 可见——访客/协作者不能邀请 */
-          isOwner && (
+          {/* 邀请协作（弹层）：仅 owner 可见——访客/协作者不能邀请 */}
+          {isOwner && (
             <button
               type="button"
               onClick={() => setShowInvite((v) => !v)}

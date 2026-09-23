@@ -9,14 +9,14 @@ NestJS 后端托管 WebSocket 同步房间，Next.js 前端用 Tiptap 编辑器�
 ```mermaid
 flowchart LR
     subgraph Browser["浏览器 (apps/web)"]
-        Editor["Tiptap 编辑器<br/>packages/editor"]
+        Editor["Tiptap 编辑器<br/>components/editor/"]
         YWS["y-websocket Provider"]
         Editor --> YWS
     end
 
     subgraph Server["NestJS 后端 (apps/server)"]
         WS["ws.WebSocketServer<br/>手动绑 upgrade"]
-        RoomMgr["YjsRoomManager<br/>packages/yjs-server"]
+        RoomMgr["YjsRoomManager<br/>src/yjs/room-manager.ts"]
         Sync["sync-handler<br/>y-protocols"]
         REST["REST /api/documents"]
         WS --> RoomMgr
@@ -33,6 +33,10 @@ flowchart LR
     RoomMgr -->|loadState / saveState| PG
     RoomMgr -.->|Awareness 快照| Redis
 ```
+
+> **目录约定**：服务端协同核心（房间、同步协议、WS 适配）放在 `apps/server/src/yjs/`，
+> 前端编辑器封装（Tiptap + y-websocket）放在 `apps/web/components/editor/`，
+> 跨端共享的 DTO 与协议常量放在 `packages/shared/`。
 
 ## 技术栈
 
@@ -52,43 +56,48 @@ flowchart LR
 ```
 yjs-demo/
 ├── apps/
-│   ├── web/              # Next.js 15 + React 19 + Tailwind v4
+│   ├── web/                  # Next.js 15 + React 19 + Tailwind v4
 │   │   ├── app/
 │   │   │   ├── page.tsx                  # 文档列表页
-│   │   │   └── editor/[docId]/          # 协同编辑页（dynamic ssr:false）
-│   │   ├── next.config.ts
+│   │   │   ├── login/page.tsx            # 极简登录页
+│   │   │   └── editor/[docId]/           # 协同编辑页（dynamic ssr:false）
+│   │   │       ├── page.tsx              # server component：拉文档元数据
+│   │   │       └── editor-client.tsx     # client component：标题/邀请/删除等交互
+│   │   ├── components/
+│   │   │   ├── editor/                   # 协同编辑器封装（原 packages/editor 并入）
+│   │   │   │   ├── use-collaboration.ts  # React hook：Y.Doc + Provider + Tiptap
+│   │   │   │   ├── collab-editor.tsx     # CollabEditor 组件（状态条/头像/工具栏）
+│   │   │   │   ├── editor-toolbar.tsx    # 富文本工具栏
+│   │   │   │   └── index.ts
+│   │   │   ├── user-provider.tsx         # 极简登录（localStorage + cookie）
+│   │   │   ├── require-user.tsx          # 未登录守卫
+│   │   │   ├── app-header.tsx
+│   │   │   └── document-list-item.tsx
+│   │   ├── lib/document-utils.ts         # 相对时间/取色等展示工具
+│   │   ├── next.config.ts                # rewrites: /api/* 与 /yjs/* → 3001
 │   │   └── package.json
-│   └── server/          # NestJS 11 + Prisma + WebSocket
+│   └── server/              # NestJS 11 + Prisma + WebSocket
 │       ├── src/
 │       │   ├── main.ts                   # 入口：手动绑 wss.handleUpgrade
 │       │   ├── app.module.ts
-│       │   ├── yjs/
-│       │   │   ├── yjs.service.ts        # YjsService：房间管理 + Prisma 持久化
-│       │   │   └── yjs.module.ts
-│       │   └── documents/                # REST CRUD
-│       ├── prisma/
-│       │   └── schema.prisma             # Document 表（id/name/owner/state bytea）
+│       │   ├── yjs/                      # 服务端协同核心（原 packages/yjs-server 并入，5 个文件分层）
+│       │   │   ├── types.ts              # 契约层：YjsPersistence / YjsConnection / RoomInfo
+│       │   │   ├── sync-handler.ts       # 协议层：y-protocols sync/awareness 消息分发
+│       │   │   ├── room.ts               # 房间层：WS 适配（createWsConnection）+ YjsRoom
+│       │   │   ├── room-manager.ts       # 管理层：房间池 + 惰性创建 + 空闲销毁
+│       │   │   └── yjs.service.ts        # 接入层：NestJS service（Prisma 持久化）+ YjsModule 声明
+│       │   ├── documents/                # REST CRUD + 协作者授权
+│       │   └── info/                     # 局域网 IP 探测（复制链接用）
+│       ├── prisma/schema.prisma          # Document（state bytea）+ Collaborator 表
 │       ├── test-collab.mjs               # 协同 demo 测试脚本
 │       └── package.json
 ├── packages/
-│   ├── shared/           # @yjs-demo/shared — DTO + 协议常量
-│   │   └── src/
-│   │       ├── user.ts                   # User 类型
-│   │       ├── document.ts               # DocumentMeta DTO
-│   │       ├── yjs-schema.ts            # Yjs 文档结构常量
-│   │       └── protocol.ts              # WebSocket 消息（zod discriminatedUnion）
-│   ├── yjs-server/       # @yjs-demo/yjs-server — 服务端协同核心
-│   │   └── src/
-│   │       ├── room.ts                   # YjsRoom：单文档房间（Y.Doc + connections）
-│   │       ├── room-manager.ts          # YjsRoomManager：房间池 + 定时 save
-│   │       ├── sync-handler.ts          # y-protocols sync step 处理
-│   │       ├── ws-adapter.ts            # ws.WebSocket → YjsConnection 适配
-│   │       └── types.ts
-│   └── editor/           # @yjs-demo/editor — Tiptap + Yjs 封装
+│   └── shared/             # @yjs-demo/shared — DTO + 协议常量（唯一保留的 package）
 │       └── src/
-│           ├── use-collaboration.ts     # React hook：Provider + Awareness
-│           ├── collab-editor.tsx        # CollabEditor 组件
-│           └── styles.css
+│           ├── user.ts                   # User / AwarenessUser 类型
+│           ├── document.ts               # DocumentMeta / Collaborator DTO
+│           ├── yjs-schema.ts             # 房间 ID 约定、文档 ID 前缀常量
+│           └── protocol.ts               # WebSocket 消息（zod discriminatedUnion）
 ├── docker/
 │   └── postgres/init.sql                # 启用 pgvector 扩展
 ├── docker-compose.yml                   # PostgreSQL + Redis
@@ -129,8 +138,8 @@ pnpm prisma:generate
 pnpm prisma:push
 cd ../..
 
-# 5. 构建 packages（apps 运行时依赖 packages/dist）
-pnpm --filter "@yjs-demo/shared" --filter "@yjs-demo/yjs-server" --filter "@yjs-demo/editor" build
+# 5. 构建共享包（apps 运行时依赖 packages/shared 的 dist）
+pnpm --filter "@yjs-demo/shared" build
 
 # 6. 启动后端 + 前端（两个终端各一个，或用 turbo 并行）
 pnpm --filter @yjs-demo/server dev   # 终端 1：NestJS on :3001
@@ -170,30 +179,6 @@ pnpm typecheck    # tsc --noEmit
 
 产物：`dist/index.js`（ESM）、`dist/index.cjs`（CJS）、`dist/index.d.ts`。apps/server 和 apps/web 都依赖这个产物。
 
-### packages/yjs-server — 服务端协同核心
-
-```bash
-cd packages/yjs-server
-pnpm build        # tsup 出 ESM+CJS，tsc 出 .d.ts
-pnpm dev          # watch 模式
-pnpm typecheck
-```
-
-产物同上结构。apps/server 通过 `@yjs-demo/yjs-server` 导入 `YjsRoomManager`、`createWsConnection` 等。
-
-### packages/editor — Tiptap 编辑器封装
-
-```bash
-cd packages/editor
-pnpm build        # tsup 出 ESM + .d.ts
-pnpm dev          # watch 模式
-pnpm typecheck
-```
-
-产物：`dist/index.js`、`dist/index.d.ts`。apps/web 通过 `@yjs-demo/editor` 导入 `CollabEditor` 组件和 `useCollaboration` hook。
-
-> **注意**：editor 的样式原本在 `src/styles.css`，跨包 CSS @import 在 Tailwind v4 + Next.js 下解析失败，已合并到 `apps/web/app/globals.css`。修改编辑器样式直接改 web 的 globals.css。
-
 ### apps/server — NestJS 后端
 
 ```bash
@@ -201,18 +186,18 @@ cd apps/server
 
 # 首次启动（或 schema 变更后）
 pnpm prisma:generate    # 生成 Prisma client 到 ../../node_modules/.prisma/client
-pnpm prisma:push       # 同步 schema 到数据库（不需要 migration 时用这个）
+pnpm prisma:push        # 同步 schema 到数据库（不需要 migration 时用这个）
 
 # 开发模式
-pnpm dev               # nest start --watch，监听 :3001
+pnpm dev                # nest start --watch，监听 :3001
 
 # 生产模式
-pnpm build             # nest build → dist/main.js
-pnpm start:prod        # NODE_ENV=production node dist/main.js
+pnpm build              # nest build → dist/main.js
+pnpm start:prod         # NODE_ENV=production node dist/main.js
 
 # Prisma 工具
-pnpm prisma:migrate    # 创建 migration（正式项目用）
-pnpm prisma:studio     # 打开 Prisma Studio 可视化看表
+pnpm prisma:migrate     # 创建 migration（正式项目用）
+pnpm prisma:studio      # 打开 Prisma Studio 可视化看表
 ```
 
 启动成功标志：
@@ -221,18 +206,22 @@ pnpm prisma:studio     # 打开 Prisma Studio 可视化看表
 [server] WebSocket path: ws://localhost:3001/yjs/:docId
 ```
 
+> **协同核心在 `src/yjs/`**：房间/同步/持久化逻辑都在 NestJS 应用内，随 `nest build` 一起编译，
+> 不需要单独 build。各文件的职责见上方目录结构注释。
+
 ### apps/web — Next.js 前端
 
 ```bash
 cd apps/web
-pnpm dev               # next dev --turbopack -p 3000
-pnpm build             # next build
-pnpm start             # next start -p 3000（生产）
+pnpm dev                # next dev --turbopack -p 3000
+pnpm build              # next build
+pnpm start              # next start -p 3000（生产）
 ```
 
 启动成功后访问 http://localhost:3000。
 
 > **注意**：协同编辑页用 `dynamic(() => import(...), { ssr: false })` 包装，因为 y-websocket Provider 依赖浏览器 API，不能 SSR。
+> 编辑器封装在 `components/editor/`，样式统一写在 `apps/web/app/globals.css`（Tailwind v4 + Next.js 下跨包 CSS @import 解析失败，故不再拆 style 文件）。
 
 ## 测试流程
 
@@ -328,29 +317,27 @@ pnpm --filter @yjs-demo/server dev        # 起后端 :3001
 pnpm --filter @yjs-demo/web dev           # 起前端 :3000
 
 # ===== 构建 =====
-pnpm --filter @yjs-demo/shared build      # 单独 build shared
-pnpm --filter @yjs-demo/yjs-server build   # 单独 build yjs-server
-pnpm --filter @yjs-demo/editor build      # 单独 build editor
-pnpm build                                 # build 全部（turbo 编排）
+pnpm --filter @yjs-demo/shared build      # 单独 build shared（唯一需要单独构建的 package）
+pnpm build                                # build 全部（turbo 编排）
 
 # ===== 测试 =====
-pnpm test:collab                           # 协同 demo 测试（需 server 在线）
-curl http://localhost:3001/api/documents   # REST 冒烟测试
+pnpm test:collab                          # 协同 demo 测试（需 server 在线）
+curl http://localhost:3001/api/documents  # REST 冒烟测试
 
 # ===== Prisma =====
 cd apps/server
-pnpm prisma:generate                       # 生成 client
-pnpm prisma:push                           # 同步 schema
-pnpm prisma:studio                         # 可视化看表
+pnpm prisma:generate                      # 生成 client
+pnpm prisma:push                          # 同步 schema
+pnpm prisma:studio                        # 可视化看表
 
 # ===== Docker =====
-pnpm db:up                                 # 启动
-pnpm db:down                               # 停止
-pnpm db:logs                               # 看日志
-pnpm db:reset                              # 清空重建
+pnpm db:up                                # 启动
+pnpm db:down                              # 停止
+pnpm db:logs                              # 看日志
+pnpm db:reset                             # 清空重建
 
 # ===== 清理 =====
-pnpm clean                                 # 删所有 dist + node_modules
+pnpm clean                                # 删所有 dist + node_modules
 ```
 
 ## 关键设计决策与注意事项
@@ -365,30 +352,47 @@ pnpm clean                                 # 删所有 dist + node_modules
 
 代价：失去 pnpm 严格的依赖隔离，但 monorepo 内可接受。
 
-### 3. packages 用 dual format 输出（ESM + CJS）
+### 3. 协同代码直接内嵌在 apps 里（不再拆 package）
 
-`shared` 和 `yjs-server` 用 tsup 输出 ESM + CJS 双格式 + 独立 tsc 生成 `.d.ts`。因为：
+服务端协同核心在 `apps/server/src/yjs/`，前端编辑器封装在 `apps/web/components/editor/`，由 NestJS / Next.js 各自的构建管线编译，不需要单独的 tsup 构建步骤。共享契约（DTO、协议常量、房间 ID 约定）仍放在 `@yjs-demo/shared`，这是唯一需要单独构建的 package。
+
+`src/yjs/` 按关注点分为 5 个文件，自下而上依赖（避免单文件过大，也避免文件过多）：
+
+```
+types.ts（契约） → sync-handler.ts（协议） → room.ts（房间） → room-manager.ts（房间池） → yjs.service.ts（NestJS 接入）
+```
+
+- `types.ts`：`YjsPersistence` / `YjsConnection` / `RoomInfo` 接口，被各层共用。
+- `sync-handler.ts`：y-protocols 消息编解码与分发（`handleYjsMessage` / `sendInitialSync` / 消息类型常量），只依赖契约层，可独立测试。
+- `room.ts`：一个房间的运行机制——`createWsConnection`（ws.WebSocket → YjsConnection）+ `YjsRoom`（Y.Doc + awareness + 广播 + 持久化调度）。
+- `room-manager.ts`：房间池（惰性创建、空闲销毁、监控查询）。
+- `yjs.service.ts`：NestJS 接入层（WebSocket 连接入口 + Prisma 持久化），`YjsModule` 声明同文件，避免单独 8 行的模块文件。
+
+### 4. shared 用 dual format 输出（ESM + CJS）
+
+`shared` 用 tsup 输出 ESM + CJS 双格式 + 独立 tsc 生成 `.d.ts`。因为：
 - NestJS 走 CommonJS，需要 `.cjs` 产物
 - Next.js 走 ESM，需要 `.js` 产物
 - tsup 的 `dts` 插件在 monorepo paths 下 file list 不全，改用独立 `tsc -p tsconfig.dts.json` 出类型声明
 
-### 4. 源码相对 import 去掉 .js 后缀
+### 5. 源码相对 import 后缀的约定
 
-packages 源码里 `import "./xxx"` 不能写 `./xxx.js`。原因：tsup bundle 时 `.js` 后缀导致 CJS 产物里 export 变 `void 0`。所有 packages 内部相对 import 都不加后缀。
+- `packages/shared` 源码内部相对 import **不加 `.js` 后缀**（tsup bundle 时 `.js` 后缀会导致 CJS 产物里 export 变 `void 0`）。
+- `apps/server` 内部相对 import **统一加 `.js` 后缀**（NestJS + CommonJS 的约定，`moduleResolution: Node` 下两种写法都能解析，统一后缀避免混用）。
 
-### 5. NestJS 手动绑 WebSocket（不用 WsAdapter）
+### 6. NestJS 手动绑 WebSocket（不用 WsAdapter）
 
 NestJS 的 `@nestjs/platform-ws` WsAdapter 用 `pathname === wsServer.path` 精确匹配，无法处理 `/yjs/:docId` 动态路径。所以 `main.ts` 手动创建 `ws.WebSocketServer({ noServer: true })`，绑定到 `httpServer.on("upgrade")`，自己解析 URL 取 docId。
 
-### 6. Auth 暂缓
+### 7. Auth 暂缓
 
-先用 mock 用户（写死的 ID + name + color）打通协同闭环。后续接 JWT 时只需改 `apps/server` 的 guard 和 `apps/web` 的 client header，不影响 packages 层。
+先用 mock 用户（写死的 ID + name + color）打通协同闭环。后续接 JWT 时只需改 `apps/server` 的 guard 和 `apps/web` 的 client header，不影响 shared 层。
 
-### 7. editor 样式合并到 web
+### 8. 编辑器样式合并到 web
 
-跨包 CSS `@import "@yjs-demo/editor/src/styles.css"` 在 Tailwind v4 + Next.js 下解析失败。editor 的样式直接合并到 `apps/web/app/globals.css`。改编辑器样式改这个文件。
+跨包 CSS `@import "@yjs-demo/editor/src/styles.css"` 在 Tailwind v4 + Next.js 下解析失败。编辑器样式直接写在 `apps/web/app/globals.css`。改编辑器样式改这个文件。
 
-### 8. 房间空闲自动销毁（避免 awareness 脏状态残留）
+### 9. 房间空闲自动销毁（避免 awareness 脏状态残留）
 
 `YjsRoom` 在最后一个连接断开时，通过 `onEmpty` 回调通知 `YjsRoomManager.notifyConnectionClosed`，后者延迟 30 秒（`idleTtlMs`）后销毁房间（`dispose` 释放 `Y.Doc` + 清空 awareness）。
 
@@ -397,7 +401,7 @@ NestJS 的 `@nestjs/platform-ws` WsAdapter 用 `pathname === wsServer.path` 精�
 ## 常见问题
 
 **Q: `pnpm dev` 启动后 NestJS 报找不到 `@yjs-demo/shared` 的类型？**
-A: packages 没先 build 出 `dist/*.d.ts`。先跑 `pnpm --filter @yjs-demo/shared --filter @yjs-demo/yjs-server --filter @yjs-demo/editor build`，再启动 server。
+A: shared 没先 build 出 `dist/*.d.ts`。先跑 `pnpm --filter @yjs-demo/shared build`，再启动 server。
 
 **Q: Prisma 报 `Cannot find module '.prisma/client'`？**
 A: 确认 `pnpm-workspace.yaml` 里有 `nodeLinker: hoisted`，然后 `rm -rf node_modules pnpm-lock.yaml && pnpm install`，再 `cd apps/server && pnpm prisma:generate`。
@@ -409,4 +413,4 @@ A: 确认 server 日志里有 `WebSocket path: ws://localhost:3001/yjs/:docId`�
 A: colima 没启动。先 `colima start`，并 `export PATH="/opt/homebrew/bin:$PATH"`。
 
 **Q: 前端打开编辑器页白屏？**
-A: 确认 packages 已 build（`dist/` 存在）。CollabEditor 用 dynamic import + ssr:false，必须依赖 packages 的 dist 产物而非 src。
+A: 确认 shared 已 build（`packages/shared/dist/` 存在）。CollabEditor 用 dynamic import + ssr:false，编辑器组件依赖浏览器 API。

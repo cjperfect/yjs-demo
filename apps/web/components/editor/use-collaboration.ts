@@ -110,37 +110,37 @@ export function useCollaboration(opts: UseCollaborationOptions): UseCollaboratio
     };
   }, []);
 
-// user 变化时同步给 awareness
-// 注意 deps 用 user.name/user.color 字段而非 user 引用，避免父组件
-// 每次构造新对象（如 inline {id,name,color}）导致反复 setLocalStateField
-// → awareness.update → setUsers → re-render → 死循环
-useEffect(() => {
-  provider.awareness.setLocalStateField("user", {
-    name: user.name,
-    color: user.color,
-  });
-}, [provider, user.name, user.color]);
+  // user 变化时同步给 awareness
+  // 注意 deps 用 user.name/user.color 字段而非 user 引用，避免父组件
+  // 每次构造新对象（如 inline {id,name,color}）导致反复 setLocalStateField
+  // → awareness.update → setUsers → re-render → 死循环
+  useEffect(() => {
+    provider.awareness.setLocalStateField("user", {
+      name: user.name,
+      color: user.color,
+    });
+  }, [provider, user.name, user.color]);
 
-// editor 扩展配置（用 useMemo 稳定引用）
-// deps 同样按字段，user 引用变化不会重建 extensions（= 不重建 editor）
-const extensions = useMemo(() => {
-  return [
-    StarterKit.configure({
-      // 协同模式下由 Collaboration 扩展接管 undo/redo
-      history: false,
-    }),
-    Collaboration.configure({
-      document: ydoc,
-    }),
-    CollaborationCursor.configure({
-      provider,
-      user: {
-        name: user.name,
-        color: user.color,
-      },
-    }),
-  ];
-}, [ydoc, provider, user.name, user.color]);
+  // editor 扩展配置（用 useMemo 稳定引用）
+  // deps 同样按字段，user 引用变化不会重建 extensions（= 不重建 editor）
+  const extensions = useMemo(() => {
+    return [
+      StarterKit.configure({
+        // 协同模式下由 Collaboration 扩展接管 undo/redo
+        history: false,
+      }),
+      Collaboration.configure({
+        document: ydoc,
+      }),
+      CollaborationCursor.configure({
+        provider,
+        user: {
+          name: user.name,
+          color: user.color,
+        },
+      }),
+    ];
+  }, [ydoc, provider, user.name, user.color]);
 
   // useEditor 的第二个参数是 deps，docId 变化时重建 editor
   const editor = useEditor(

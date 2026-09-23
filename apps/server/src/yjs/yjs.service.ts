@@ -1,19 +1,23 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, Module } from "@nestjs/common";
 import { PrismaClient } from "@prisma/client";
-import { YjsRoomManager, createWsConnection } from "@yjs-demo/yjs-server";
-import type { YjsPersistence } from "@yjs-demo/yjs-server";
+import { YjsRoomManager } from "./room-manager.js";
+import { createWsConnection } from "./room.js";
+import type { YjsPersistence } from "./types.js";
 import type { WebSocket } from "ws";
 import type { IncomingMessage } from "http";
 
 /**
- * Yjs 协同服务
+ * Yjs 协同服务 + NestJS 模块
  *
- * 同时实现 YjsPersistence 接口（loadState/saveState），
+ * YjsService 同时实现 YjsPersistence 接口（loadState/saveState），
  * 把 Yjs 文档二进制 state 存到 Postgres bytea 字段。
  *
  * 不用 NestJS 的 @WebSocketGateway（其 WsAdapter 用 pathname 精确匹配 path，
  * 无法处理 /yjs/:docId 动态路径），改为 main.ts 手动创建 ws.WebSocketServer
  * 绑定 httpServer 的 upgrade 事件，调用本 service 的 handleConnection。
+ *
+ * 文件同时声明 YjsModule（@Module），让 app.module 直接引用，
+ * 避免为 8 行的模块声明单独拆一个文件。
  */
 @Injectable()
 export class YjsService extends PrismaClient implements YjsPersistence {
@@ -89,3 +93,8 @@ export class YjsService extends PrismaClient implements YjsPersistence {
   }
 }
 
+@Module({
+  providers: [YjsService],
+  exports: [YjsService],
+})
+export class YjsModule {}

@@ -26,7 +26,7 @@ export interface CollabEditorProps {
  *   <CollabEditor docId="doc-001" user={user} wsUrl={wsUrl} />
  *
  * 在 Next.js App Router 中建议用 dynamic import 包装以避免 SSR 报错：
- *   const CollabEditor = dynamic(() => import("@yjs-demo/editor").then(m => m.CollabEditor), { ssr: false });
+ *   const CollabEditor = dynamic(() => import("../../../components/editor").then(m => m.CollabEditor), { ssr: false });
  */
 export function CollabEditor(props: CollabEditorProps): JSX.Element {
   const { docId, user, wsUrl, placeholder, initialContent, onUsersChange, onConnectedChange } = props;

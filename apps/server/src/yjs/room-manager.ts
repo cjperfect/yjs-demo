@@ -1,5 +1,5 @@
-import type { YjsConnection, YjsPersistence, RoomInfo } from "./types";
-import { YjsRoom } from "./room";
+import type { YjsConnection, YjsPersistence, RoomInfo } from "./types.js";
+import { YjsRoom } from "./room.js";
 import { fromRoomId, toRoomId } from "@yjs-demo/shared";
 
 /**
