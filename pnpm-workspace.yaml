@@ -1,0 +1,79 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+
+# pnpm 12 配置（从 .npmrc 迁移）
+nodeLinker: hoisted
+
+# 允许在 install 时执行 build 脚本的依赖白名单
+# pnpm 12 起用 allowBuilds 替代 onlyBuiltDependencies
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  esbuild: true
+  leveldown: true
+  prisma: true
+
+catalog:
+  # 工具链
+  typescript: ^5.7.2
+  tsup: ^8.3.5
+  turbo: ^2.3.3
+
+  # Yjs 全家桶（CRDT 核心 + 协议层 + ProseMirror 绑定 + 客户端 Provider）
+  yjs: ^13.6.20
+  y-protocols: ^1.0.6
+  y-prosemirror: ^1.2.15
+  y-websocket: ^2.0.4
+  # Yjs 二进制编解码底层库（encoding/decoding/utility）
+  lib0: ^0.2.96
+
+  # Tiptap 编辑器（基于 ProseMirror）
+  '@tiptap/core': ^2.11.5
+  '@tiptap/react': ^2.11.5
+  '@tiptap/starter-kit': ^2.11.5
+  '@tiptap/extension-collaboration': ^2.11.5
+  '@tiptap/extension-collaboration-cursor': ^2.11.5
+  '@tiptap/suggestion': ^2.11.5
+  '@tiptap/pm': ^2.11.5
+
+  # ProseMirror 底层（y-prosemirror 直接依赖）
+  prosemirror-state: ^1.4.3
+  prosemirror-view: ^1.34.4
+  prosemirror-model: ^1.24.1
+  prosemirror-transform: ^1.4.1
+
+  # React / Next.js
+  react: ^19.0.0
+  react-dom: ^19.0.0
+  '@types/react': ^19.0.0
+  '@types/react-dom': ^19.0.0
+  next: ^15.1.6
+
+  # NestJS 后端
+  '@nestjs/common': ^11.0.0
+  '@nestjs/core': ^11.0.0
+  '@nestjs/platform-express': ^11.0.0
+  '@nestjs/platform-ws': ^11.0.0
+  '@nestjs/websockets': ^11.0.0
+  '@nestjs/cli': ^11.0.0
+  reflect-metadata: ^0.2.2
+  rxjs: ^7.8.1
+
+  # WebSocket（Yjs 同步走原生 ws，不用 socket.io）
+  ws: ^8.18.0
+  '@types/ws': ^8.5.13
+
+  # 数据库 / 缓存
+  '@prisma/client': ^5.22.0
+  prisma: ^5.22.0
+  ioredis: ^5.4.1
+
+  # Tailwind v4
+  tailwindcss: ^4.0.0
+  '@tailwindcss/postcss': ^4.0.0
+
+  # 通用工具
+  zod: ^3.24.1
+  nanoid: ^5.0.9
+  dotenv: ^16.4.7

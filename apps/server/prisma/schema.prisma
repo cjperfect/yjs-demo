@@ -1,0 +1,47 @@
+// Prisma schema for yjs-demo server
+// Yjs 文档二进制 state 存储在 documents 表的 state 字段（bytea）
+
+generator client {
+  provider = "prisma-client-js"
+  // 不指定 output，让 Prisma 用默认位置
+  // （hoisted 模式下会生成到 monorepo 根 node_modules/.prisma/client）
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  name      String
+  owner     String?
+  state     Bytes?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  // 公开链接开关：false=私有（仅 owner+collaborator 可访问），
+  // true=公开（任何登录用户通过链接都能访问，以访客身份编辑）。
+  // 用于"把链接发给别人就能直接打开"的场景，免去逐个邀请的麻烦。
+  isPublic Boolean @default(false)
+  // 协作者列表：owner 之外的、被授权访问该文档的用户
+  // 用于"邀请协作"功能——alice 创建文档，加 bob 为协作者后，
+  // bob 也能看到/编辑该文档（但只能 alice 删除/重命名）
+  collaborators Collaborator[]
+
+  @@index([owner])
+  @@map("yjs_documents")
+}
+
+model Collaborator {
+  id         String   @id @default(cuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  // 协作用户名：极简登录系统下 username 就是 user.id，无独立 users 表
+  userId     String
+  createdAt  DateTime @default(now())
+
+  // 防止同一个用户被多次加为同一个文档的协作者
+  @@unique([documentId, userId])
+  @@index([userId])
+  @@map("yjs_collaborators")
+}

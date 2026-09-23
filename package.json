@@ -1,0 +1,28 @@
+{
+  "name": "yjs-demo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Collaborative document editing with Yjs CRDT, Tiptap editor, NestJS and Next.js in a pnpm monorepo",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean && rm -rf node_modules",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f",
+    "db:reset": "docker compose down -v && docker compose up -d",
+    "test:collab": "node apps/server/test-collab.mjs"
+  },
+  "packageManager": "pnpm@12.4.1",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.5.0"
+  },
+  "devDependencies": {
+    "turbo": "catalog:",
+    "typescript": "catalog:",
+    "tsup": "catalog:"
+  }
+}
