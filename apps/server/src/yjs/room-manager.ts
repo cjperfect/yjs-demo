@@ -25,6 +25,7 @@ export class YjsRoomManager {
   /**
    * 获取或创建 docId 对应的房间
    *
+   * 先查现成房间，没有再惰性创建；
    * 并发场景下使用 pendingLoads 防止重复 load
    */
   async getOrCreateRoom(docId: string): Promise<YjsRoom> {
@@ -82,11 +83,6 @@ export class YjsRoomManager {
   /** 按 roomId 查询房间 */
   getRoomByRoomId(roomId: string): YjsRoom | undefined {
     return this.rooms.get(fromRoomId(roomId));
-  }
-
-  /** 按 docId 查询房间 */
-  getRoom(docId: string): YjsRoom | undefined {
-    return this.rooms.get(docId);
   }
 
   /** 关闭所有房间（优雅停机时调用） */
