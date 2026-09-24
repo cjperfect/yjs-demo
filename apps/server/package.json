@@ -9,10 +9,10 @@
     "start:prod": "NODE_ENV=production node dist/main.js",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist .turbo",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio",
-    "prisma:push": "prisma db push"
+    "prisma:generate": "dotenv -e ../../.env -- prisma generate",
+    "prisma:migrate": "dotenv -e ../../.env -- prisma migrate dev",
+    "prisma:studio": "dotenv -e ../../.env -- prisma studio",
+    "prisma:push": "dotenv -e ../../.env -- prisma db push"
   },
   "dependencies": {
     "@yjs-demo/shared": "workspace:*",

@@ -305,7 +305,7 @@ pnpm --filter @yjs-demo/web dev
 | `MOCK_USER_NAME` | `Demo User` | 测试用户名 |
 | `MOCK_USER_COLOR` | `#7c3aed` | 测试用户光标颜色 |
 
-> server 的 `.env` 加载通过 `dotenv` 显式 `config({ path: "../../.env" })`（见 `apps/server/src/main.ts`），所以 `.env` 必须在仓库根目录。
+> server 运行时的 `.env` 加载通过 `dotenv` 显式 `config({ path: "../../.env" })`（见 `apps/server/src/main.ts`）；Prisma CLI 脚本（`prisma:generate/push/migrate/studio`）通过 `dotenv-cli` 加载 `../../.env`（见 `apps/server/package.json`）。所以 `.env` 必须在仓库根目录。
 
 ## 脚本速查表
 
@@ -405,6 +405,9 @@ A: shared 没先 build 出 `dist/*.d.ts`。先跑 `pnpm --filter @yjs-demo/share
 
 **Q: Prisma 报 `Cannot find module '.prisma/client'`？**
 A: 确认 `pnpm-workspace.yaml` 里有 `nodeLinker: hoisted`，然后 `rm -rf node_modules pnpm-lock.yaml && pnpm install`，再 `cd apps/server && pnpm prisma:generate`。
+
+**Q: `pnpm prisma:push` 报 `Environment variable not found: DATABASE_URL`（P1012）？**
+A: Prisma CLI 不会自动读取仓库根目录的 `.env`。确认在 `apps/server` 目录下执行（脚本里的 `dotenv -e ../../.env` 是相对路径），且根目录 `.env` 存在、`DATABASE_URL` 已配置。若改动过 `apps/server/package.json` 的 prisma 脚本，先重新 `pnpm install` 确保 `dotenv-cli` 可用。
 
 **Q: WebSocket 连接被拒（404 或 socket hang up）？**
 A: 确认 server 日志里有 `WebSocket path: ws://localhost:3001/yjs/:docId`。连接 URL 必须是 `ws://localhost:3001/yjs/<docId>`，不是 `ws://localhost:3001/yjs/`。
